@@ -7,9 +7,14 @@ import hashlib
 class Wallpaper:
     def __init__(self) -> None:
         self.wallpapers = []
-        self.server = "http://192.168.1.8:10000"
+        self.server = "https://wallpaper-world-server.onrender.com"
         self.categories = []
-        os.mkdir("images/")
+        try:
+            os.mkdir("images/")
+        except Exception:
+            print("already Exists")
+        else: 
+            print("Done.")
 
     def addWallpaper(self, image, categories):
         self.wallpapers.append({
