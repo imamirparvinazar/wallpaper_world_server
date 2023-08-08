@@ -1,4 +1,5 @@
 from flask import Flask, send_file, request
+from operator import itemgetter
 import random
 import os
 import ast
@@ -7,13 +8,14 @@ import hashlib
 class Wallpaper:
     def __init__(self) -> None:
         self.wallpapers = []
-        self.server = "https://wallpaper-world-server.onrender.com"
+        self.server = "http://192.168.1.8:10000"
         self.categories = []
+
         try:
-            os.mkdir("images/")
+            os.makedirs("images/")
         except Exception:
-            print("already Exists")
-        else: 
+            print("Already exists.")
+        else:
             print("Done.")
 
     def addWallpaper(self, image, categories):
@@ -50,7 +52,7 @@ wallpaper = Wallpaper()
 
 @app.route("/images/<filename>")
 def getfFile(filename):
-    return send_file(f"images\{filename}")
+    return send_file(f".\images\{filename}")
 
 @app.route("/getWallpapers", methods=["GET"])
 def getWallpapers():
@@ -79,8 +81,9 @@ def setWallpaper(hash):
 
 @app.route("/trending")
 def getTrending():
-    sorted_list = sorted(wallpaper.wallpapers, key=lambda x: x['trend'])
-    return sorted_list
+    newList = wallpaper.wallpapers.copy()
+    newList.sort(key=lambda x: x["trend"], reverse=True)
+    return newList
 
 @app.route("/categories")
 def getCategories():
