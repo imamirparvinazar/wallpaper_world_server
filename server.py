@@ -9,6 +9,7 @@ class Wallpaper:
         self.wallpapers = []
         self.server = "http://192.168.1.8:10000"
         self.categories = []
+        os.mkdir("images/")
 
     def addWallpaper(self, image, categories):
         self.wallpapers.append({
