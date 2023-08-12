@@ -4,19 +4,85 @@ import random
 import os
 import ast
 import hashlib
+import json
 
 class Wallpaper:
     def __init__(self) -> None:
         self.wallpapers = []
         self.server = "http://192.168.1.8:10000"
         self.categories = []
+        self.users = []
+        self.backup = None
+        self.api_key = hashlib.sha384(str(random.getrandbits(1024)).encode()).hexdigest()
 
         try:
-            os.makedirs("images/")
-        except Exception:
-            print("Already exists.")
+            os.mkdir("images/")
+        except FileExistsError:
+            print("Images folder detected.")
         else:
+            print("Ceating a new images folder ... ")
+
+        a = input("Do you want to import data from older server? ").lower()
+        if a == "y": 
+            b = input("Enter your backup file name: ")
+            self.importBackup(b)
             print("Done.")
+            print(f"APIKEY: {self.api_key}")
+        else: 
+            print("Strating a new server ...")
+            print(f"APIKEY: {self.api_key}")
+
+    def findWallpaperBackup(self, image):
+        for wallpaper in self.backup["wallpapers"]:
+            if wallpaper["image"] == image:
+                return wallpaper
+            
+    def findUserBackup(self, hash):
+        for user in self.backup["users"]:
+            if user["hash"] == hash:
+                return hash
+
+    def setBackup(self, backup):
+        self.backup = json.load(open(f"{backup}", "r"))
+
+    def importBackup(self, backup):
+        self.setBackup(backup)
+        for category in self.backup["categories"]:
+            self.categories.append(category)
+        for user in self.backup["users"]:
+            self.users.append(user)
+        for wallpaper in self.backup["wallpapers"]: 
+            self.wallpapers.append(wallpaper)
+
+        return True
+    
+    def exportData(self):
+        j = {
+            "wallpapers": self.wallpapers,
+            "users": self.users,
+            "categories": self.categories
+        }
+        hash = hashlib.sha256(str(random.getrandbits(1024)).encode()).hexdigest()
+        file = open(f"{hash}.json", "w")
+        json.dump(j, file)
+        self.backup = f"{hash}.json"
+        return True
+
+    def registerUser(self, hash):
+        if self.findUser(hash) == False:
+            self.users.append({
+                "hash": hash,
+                "favorates": []
+            })
+            return True
+        else:
+            return False
+
+    def findUser(self, hash):
+        for user in self.users:
+            if user["hash"] == hash:
+                return user
+        return False
 
     def addWallpaper(self, image, categories):
         self.wallpapers.append({
@@ -45,6 +111,18 @@ class Wallpaper:
             "color": color
         })
         return True
+    
+    def findWallpaper(self, hash):
+        for wall in self.wallpapers:
+            if wall["hash"] == hash:
+                return hash
+        return False
+    
+    def likeWallpaper(self, userHash, wallpaperHash):
+        user = self.findUser(userHash)
+        wallpaper = self.findWallpaper(wallpaperHash)
+        user["favorates"].append(wallpaper)
+        return True
 
 
 app = Flask("server")
@@ -61,8 +139,8 @@ def getWallpapers():
 @app.route("/addWallpaper", methods=["POST"])
 def addWallpaper():
     file = request.files['file']
-    r = random.getrandbits(32)
-    file.save(f"./images/{r}.jpg")
+    r = random.getrandbits(64)
+    file.save(f"images\{r}.jpg")
     return f"success: {r}"
 
 @app.route("/addCategory/<num>")
@@ -95,5 +173,57 @@ def addCategory():
     wallpaper.addCategories(data["name"], data["text"], data["color"])
     return "success"
 
+@app.route("/register")
+def register():
+    hash = hashlib.sha256(str(random.getrandbits(1024)).encode()).hexdigest()
+    wallpaper.registerUser(hash)
+    return {
+        "status": "success",
+        "result": hash
+    }
+
+@app.route("/exportData")
+def exportData():
+    data = ast.literal_eval(request.get_data().decode())
+    if data["API_KEY"] == wallpaper.api_key:
+        wallpaper.exportData()
+        return f"success: {wallpaper.backup}"
+    else:
+        return "error"
+    
+@app.route("/getExportedData")
+def getExportedData():
+    data = ast.literal_eval(request.get_data().decode())
+    if data["API_KEY"] == wallpaper.api_key:
+        file = data["fileName"]
+        return send_file(f"{file}")
+    else:
+        return "error"
+
+@app.route("/getUser/<hash>")
+def getUser(hash):
+    if wallpaper.users.__len__() > 0:
+        for user in wallpaper.users:
+            if user["hash"] == hash:
+                return hash
+            
+        return "failed"
+    else:
+        return "failed"
+    
+@app.route("/likeWallpaper/<userHash>/<wallpaperHash>")
+def likeWallpaper(userHash, wallpaperHash):
+    wallpaper.likeWallpaper(userHash, wallpaperHash)
+    return "success"
+
+@app.route("/isLiked/<userHash>/<wallpaperHash>")
+def isLiked(userHash, wallpaperHash):
+    user = wallpaper.findUser(userHash)
+    wall = wallpaper.findWallpaper(wallpaperHash)
+
+    if wall in user["favorates"]:
+        return "true"
+    else:
+        return "false"
 
 app.run("0.0.0.0", port=10000)
