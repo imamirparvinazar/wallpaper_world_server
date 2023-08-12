@@ -1,5 +1,4 @@
 from flask import Flask, send_file, request
-from operator import itemgetter
 import random
 import os
 import ast
@@ -9,7 +8,7 @@ import json
 class Wallpaper:
     def __init__(self) -> None:
         self.wallpapers = []
-        self.server = "http://192.168.1.8:10000"
+        self.server = "https://wallpaper-world-server.onrender.com"
         self.categories = []
         self.users = []
         self.backup = None
@@ -22,15 +21,7 @@ class Wallpaper:
         else:
             print("Ceating a new images folder ... ")
 
-        a = input("Do you want to import data from older server? ").lower()
-        if a == "y": 
-            b = input("Enter your backup file name: ")
-            self.importBackup(b)
-            print("Done.")
-            print(f"APIKEY: {self.api_key}")
-        else: 
-            print("Strating a new server ...")
-            print(f"APIKEY: {self.api_key}")
+        print(self.api_key)
 
     def findWallpaperBackup(self, image):
         for wallpaper in self.backup["wallpapers"]:
@@ -226,4 +217,15 @@ def isLiked(userHash, wallpaperHash):
     else:
         return "false"
 
-app.run("0.0.0.0", port=10000)
+@app.route("/importData", methods=["POST"])
+def importData():
+    if request.form.get("API_KEY") == wallpaper.api_key:
+        file = request.files["file"]
+        file.save("./file.json")
+
+        wallpaper.importBackup("file.json")
+
+        return "success"
+    
+    else:
+        return 'error'
